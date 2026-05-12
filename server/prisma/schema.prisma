@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  googleId      String?  @unique
+  phone         String
+  role          Role
+  rating        Float?   @default(0)
+  isVerified    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  listings      Listing[]
+  buyerOrders   Order[]  @relation("BuyerOrders")
+  farmerOrders  Order[]  @relation("FarmerOrders")
+
+  deliveries    Delivery[]
+  reviewsGiven  Review[] @relation("Reviewer")
+  reviewsRecv   Review[] @relation("TargetUser")
+}
+enum Role {
+  FARMER
+  BUYER
+  DELIVERY
+  ADMIN
+}
+model Listing {
+  id               String   @id @default(uuid())
+  farmerId         String
+  productName      String
+  description      String?
+  pricePerUnit     Float
+  unit             String
+  totalQuantity    Float
+  availableQuantity Float
+  reservedQuantity Float   @default(0)
+
+  imageUrl         String?
+  latitude         Float
+  longitude        Float
+
+  negotiable       Boolean  @default(true)
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  farmer           User @relation(fields: [farmerId], references: [id])
+
+  negotiations     Negotiation[]
+  orders           Order[]
+}
+model Negotiation {
+  id        String   @id @default(uuid())
+  listingId String
+  buyerId   String
+  farmerId  String
+  status    NegotiationStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+
+  listing   Listing @relation(fields: [listingId], references: [id])
+
+  offers    Offer[]
+  order     Order?
+}
+enum NegotiationStatus {
+  ACTIVE
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+model Offer {
+  id            String   @id @default(uuid())
+  negotiationId String
+  senderRole    Role
+  price         Float
+  quantity      Float
+  message       String?
+  createdAt     DateTime @default(now())
+
+  negotiation   Negotiation @relation(fields: [negotiationId], references: [id])
+}
+model Order {
+  id            String   @id @default(uuid())
+  listingId     String
+  buyerId       String
+  farmerId      String
+  negotiationId String   @unique
+
+  price         Float
+  quantity      Float
+  totalAmount   Float
+
+  status        OrderStatus @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  createdAt     DateTime @default(now())
+
+  listing       Listing @relation(fields: [listingId], references: [id])
+  negotiation   Negotiation @relation(fields: [negotiationId], references: [id])
+
+  buyer         User @relation("BuyerOrders", fields: [buyerId], references: [id])
+  farmer        User @relation("FarmerOrders", fields: [farmerId], references: [id])
+
+  payment       Payment?
+  delivery      Delivery?
+}
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  amount        Float
+  razorpayOrderId   String?  @unique
+  method        String
+  status        PaymentStatus
+  transactionId String?
+  webhookProcessed  Boolean  @default(false)
+  escrowStatus  EscrowStatus @default(HELD)
+  createdAt     DateTime @default(now())
+
+  order         Order @relation(fields: [orderId], references: [id])
+}
+enum EscrowStatus {
+  HELD
+  RELEASED
+  REFUNDED
+}
+model Delivery {
+  id                 String   @id @default(uuid())
+  orderId            String   @unique
+  deliveryPartnerId  String
+
+  pickupLat          Float
+  pickupLng          Float
+
+  dropLat            Float
+  dropLng            Float
+
+  lastLat            Float?
+  lastLng            Float?
+  lastUpdatedAt      DateTime?
+
+  status             DeliveryStatus @default(ASSIGNED)
+  otp                String?
+  otpExpiry          DateTime?
+  proofImageUrl      String?
+
+  assignedAt         DateTime @default(now())
+  deliveredAt        DateTime?
+
+  order              Order @relation(fields: [orderId], references: [id])
+  deliveryPartner    User @relation(fields: [deliveryPartnerId], references: [id])
+}
+enum DeliveryStatus {
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+}
+model Review {
+  id           String   @id @default(uuid())
+  orderId      String
+  reviewerId   String
+  targetUserId String
+  rating       Int
+  comment      String?
+  createdAt    DateTime @default(now())
+  @@unique([orderId, reviewerId])
+  reviewer     User @relation("Reviewer", fields: [reviewerId], references: [id])
+  targetUser   User @relation("TargetUser", fields: [targetUserId], references: [id])
+}
+model Dispute {
+  id        String   @id @default(uuid())
+  orderId   String
+  raisedBy  String
+  reason    String
+  status    DisputeStatus @default(OPEN)
+  resolution String?
+  createdAt DateTime @default(now())
+}
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
