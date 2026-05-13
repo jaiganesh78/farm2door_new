@@ -39,7 +39,7 @@ const OrderSummary = () => {
     const fetchOrder = async () => {
       try {
         const response = await api.get(`/delivery/my`); 
-        const foundDel = response.data.find(d => d.orderId === orderId);
+        const foundDel =(response.data.orders || response.data).find(d => d.orderId === orderId);
         if (foundDel) {
           setOrder(foundDel.order);
         } else {

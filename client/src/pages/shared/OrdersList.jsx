@@ -4,6 +4,7 @@ import { useOrderStore } from "@/store/orderStore";
 import { DashboardHeader } from "@/components/DashboardUI";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
+import { Calendar, User } from "lucide-react";
 import { 
   ShoppingBag, 
   ArrowRight, 

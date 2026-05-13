@@ -31,18 +31,6 @@ import redis from "./config/redis.js";
 const app = express();
 
 const server = http.createServer(app);
-
-app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
-app.set("trust proxy", 1);
-
-app.use(helmet());
-app.use(hpp());
-
-const allowedOrigins = (env.CORS_ORIGIN || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
 const corsOptions = {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -54,6 +42,18 @@ const corsOptions = {
   },
   credentials: true,
 };
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+app.set("trust proxy", 1);
+app.use(cors(corsOptions));
+app.use(helmet());
+app.use(hpp());
+
+const allowedOrigins = (env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+
 
 const io = new Server(server, {
   cors: {
@@ -198,7 +198,7 @@ app.use((req, res, next) => {
 
 
 app.use(requestId);
-app.use(cors(corsOptions));
+
 app.use(requestLogger);
 app.use("/api/admin", adminRoutes);
 app.use("/api/disputes", disputeRoutes);

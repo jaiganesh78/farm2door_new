@@ -95,7 +95,7 @@ export const getMyNegotiations = async (user) => {
         }
       }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { updatedAt: "desc" }
   });
 };
 
