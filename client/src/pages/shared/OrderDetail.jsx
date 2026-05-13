@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import EscrowTimeline from "@/components/payments/EscrowTimeline";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -30,6 +30,7 @@ import { motion } from "framer-motion";
 
 const OrderDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -361,10 +362,13 @@ const OrderDetail = () => {
               </div>
 
               {order?.paymentStatus !== "SUCCESS" && user?.role === "BUYER" && (
-                <Button className="w-full mt-10 py-5 rounded-[1.5rem] font-black group">
-                   Complete Payment
-                   <ArrowLeft className="w-4 h-4 ml-2 rotate-180 group-hover:translate-x-1 transition-transform" />
-                </Button>
+                <Button
+                onClick={() => navigate(`/orders/summary/${order.id}`)}
+                className="w-full mt-10 py-5 rounded-[1.5rem] font-black group"
+              >
+                 Complete Payment
+                 <ArrowLeft className="w-4 h-4 ml-2 rotate-180 group-hover:translate-x-1 transition-transform" />
+              </Button>
               )}
            </motion.div>
 

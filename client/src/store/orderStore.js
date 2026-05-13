@@ -33,7 +33,7 @@ export const useOrderStore = create((set, get) => ({
     set({ transactionStatus: "PENDING", error: null });
     try {
       const response = await paymentService.createOrder(orderId);
-      return response.data; // { razorpayOrderId, amount, currency }
+      return response;
     } catch (err) {
       set({ transactionStatus: "FAILED", error: err.message });
       throw err;
@@ -44,7 +44,7 @@ export const useOrderStore = create((set, get) => ({
     try {
       const response = await paymentService.verifyPayment(paymentData);
       set({ transactionStatus: "SUCCESS" });
-      return response.data;
+      return response;
     } catch (err) {
       set({ transactionStatus: "FAILED", error: err.message });
       throw err;

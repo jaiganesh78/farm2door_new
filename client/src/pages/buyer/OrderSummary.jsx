@@ -38,61 +38,98 @@ const OrderSummary = () => {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const response = await api.get(`/delivery/my`); 
-        const foundDel =(response.data.orders || response.data).find(d => d.orderId === orderId);
-        if (foundDel) {
-          setOrder(foundDel.order);
-        } else {
-          const direct = await api.get(`/delivery/${orderId}`);
-          setOrder(direct.data.order);
-        }
+        const response = await api.get(`/orders/${orderId}`);
+    
+        const orderData = response.data?.data || response.data;
+    
+        setOrder(orderData);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch order:", err);
       } finally {
         setLoading(false);
       }
     };
     fetchOrder();
   }, [orderId]);
-
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+  
+      const script = document.createElement("script");
+  
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+  
+      script.onload = () => {
+        resolve(true);
+      };
+  
+      script.onerror = () => {
+        resolve(false);
+      };
+  
+      document.body.appendChild(script);
+    });
+  };
   const handlePayment = async () => {
     try {
+      const loaded = await loadRazorpayScript();
+  
+      if (!loaded) {
+        addToast("Failed to load Razorpay SDK", "error");
+        return;
+      }
+  
       const rzOrder = await createPayment(orderId);
-      
+  
+      const paymentData = rzOrder.data;
+  
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: rzOrder.amount,
-        currency: rzOrder.currency,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
         name: "Farm2Door",
         description: `Order for ${order.listing.productName}`,
-        order_id: rzOrder.razorpayOrderId,
+        order_id: paymentData.razorpayOrderId,
+  
         handler: async (response) => {
           try {
             await verifyPayment({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              orderId: orderId
+              orderId,
             });
+  
             addToast("Payment successful!", "success");
+  
             navigate(`/orders/${orderId}`);
           } catch (err) {
-            addToast("Verification failed: " + err.message, "error");
+            console.error(err);
+            addToast("Payment verification failed", "error");
           }
         },
+  
         prefill: {
           name: user.name,
           email: user.email,
         },
+  
         theme: {
           color: "#16a34a",
         },
       };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+  
+      const paymentObject = new window.Razorpay(options);
+  
+      paymentObject.open();
+  
     } catch (err) {
-      addToast(err.message, "error");
+      console.error(err);
+      addToast(err.message || "Payment failed", "error");
     }
   };
 
