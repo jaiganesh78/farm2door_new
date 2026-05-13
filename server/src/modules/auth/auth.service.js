@@ -4,6 +4,9 @@ import { conflict, unauthorized } from "../../utils/httpError.js";
 
 export const registerUser = async (data) => {
   const { name, email, password, phone, role } = data;
+  if (role === "ADMIN") {
+    throw unauthorized("Admin registration is not allowed");
+  }
 
   const existingUser = await prisma.user.findUnique({
     where: { email },

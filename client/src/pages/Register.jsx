@@ -104,8 +104,8 @@ const Register = () => {
 
         <div className="space-y-1">
           <label className="block text-sm font-medium text-gray-700">I am a...</label>
-          <div className="grid grid-cols-2 gap-3">
-            {["BUYER", "FARMER"].map((role) => (
+          <div className="grid grid-cols-3 gap-3">
+          {["BUYER", "FARMER", "DELIVERY"].map((role) => (
               <button
                 key={role}
                 type="button"
