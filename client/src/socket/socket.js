@@ -37,7 +37,7 @@ export const disconnectSocket = () => {
 export const joinRoom = (room) => {
   const s = getSocket();
   if (s) {
-    s.emit("join", room);
+    s.emit("joinDeliveryRoom", room);
   }
 };
 

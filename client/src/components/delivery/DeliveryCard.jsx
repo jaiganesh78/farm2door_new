@@ -9,7 +9,7 @@ const DeliveryCard = ({ task }) => {
   
   return (
     <Link 
-      to={`/delivery/track/${task.id}`}
+      to={`/delivery/tasks/${task.id}`}
       className="group bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col md:row md:items-center justify-between gap-6"
     >
       <div className="flex items-center gap-5">

@@ -22,11 +22,20 @@ const stripOtpFields = (delivery) => {
 };
 
 const deliveryInclude = {
+  deliveryPartner: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      rating: true,
+    },
+  },
   order: {
     include: {
       buyer: true,
       farmer: true,
       listing: true,
+      payment: true,
     },
   },
 };
@@ -94,8 +103,65 @@ if (!partner || partner.role !== "DELIVERY") {
   return delivery;
 };
 
+// Get available missions for delivery partners
+export const getAvailableMissions = async () => {
+  return await prisma.order.findMany({
+    where: {
+      status: "CONFIRMED",
+      paymentStatus: "SUCCESS",
+      delivery: null,
+    },
+    include: {
+      listing: true,
+      buyer: {
+        select: { id: true, name: true, phone: true },
+      },
+      farmer: {
+        select: { id: true, name: true, phone: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};
+
+// Accept a mission (Delivery Partner self-assignment)
+export const acceptMission = async (user, orderId) => {
+  if (user.role !== "DELIVERY") {
+    throw httpError(403, "Only delivery partners can accept missions");
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { listing: true, delivery: true },
+  });
+
+  if (!order) throw httpError(404, "Order not found");
+  if (order.delivery) throw httpError(400, "Mission already assigned");
+  if (order.status !== "CONFIRMED") throw httpError(400, "Order not ready for delivery");
+
+  const delivery = await prisma.delivery.create({
+    data: {
+      orderId,
+      deliveryPartnerId: user.id,
+      pickupLat: order.listing.latitude,
+      pickupLng: order.listing.longitude,
+      dropLat: 0,
+      dropLng: 0,
+      status: "ASSIGNED",
+    },
+    include: deliveryInclude,
+  });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { status: "ASSIGNED" },
+  });
+
+  return stripOtpFields(delivery);
+};
+
 // Update delivery status
-export const updateStatus = async (user, deliveryId, status, proofImageUrl) => {
+export const updateStatus = async (user, deliveryId, status, proofImageUrl, io) => {
   const delivery = await prisma.delivery.findUnique({
     where: { id: deliveryId },
     include: { order: true },
@@ -143,23 +209,34 @@ if (status === "DELIVERED" && delivery.status !== "DELIVERED") {
   otpExpiry,
 },
   });
+
   logger.info({
     message: "Delivery status updated",
     deliveryId,
     status,
     userId: user.id,
   });
+
   await prisma.order.update({
     where: { id: delivery.orderId },
     data: { status },
   });
 
+  // Emit real-time status update
+  if (io) {
+    io.to(deliveryId).emit("delivery:status:update", {
+      deliveryId,
+      status,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   return updated;
 };
 
 // Verify OTP → release payment
-export const verifyOtp = async (user, deliveryId, otp) => {
-  return await prisma.$transaction(async (tx) => {
+export const verifyOtp = async (user, deliveryId, otp, io) => {
+  const result = await prisma.$transaction(async (tx) => {
     const delivery = await tx.delivery.findUnique({
       where: { id: deliveryId },
       include: {
@@ -186,8 +263,8 @@ if (delivery.otpExpiry && new Date() > delivery.otpExpiry) {
   throw new Error("OTP expired");
 }
 
-    if (user.id !== delivery.order.buyerId) {
-      throw new Error("Only buyer can verify");
+    if (user.id !== delivery.order.buyerId && user.id !== delivery.deliveryPartnerId) {
+      throw new Error("Only buyer or delivery partner can verify");
     }
 
     if (delivery.status !== "DELIVERED") {
@@ -222,7 +299,7 @@ if (delivery.otpExpiry && new Date() > delivery.otpExpiry) {
     // clear OTP
     await tx.delivery.update({
       where: { id: deliveryId },
-      data: { otp: null, otpExpiry: null },
+      data: { otp: null, otpExpiry: null, status: "COMPLETED" },
     });
     await finalizeInventory(
       tx,
@@ -243,6 +320,17 @@ if (delivery.otpExpiry && new Date() > delivery.otpExpiry) {
 
     return { message: "Delivery confirmed & payment released" };
   });
+
+  // Emit completion after transaction
+  if (io) {
+    io.to(deliveryId).emit("delivery:status:update", {
+      deliveryId,
+      status: "COMPLETED",
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  return result;
 };
 
 export const updateLocation = async (user, deliveryId, lat, lng, io) => {

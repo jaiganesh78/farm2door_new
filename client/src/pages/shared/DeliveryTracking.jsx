@@ -129,44 +129,83 @@ const DeliveryTracking = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Left: Map & Partner Info */}
         <div className="lg:col-span-2 space-y-8">
-           {/* Map Placeholder */}
-           <div className="relative aspect-video lg:aspect-auto lg:h-[500px] bg-gray-100 rounded-[3rem] border border-gray-100 shadow-inner overflow-hidden group">
+           {/* Map UI Integration */}
+           <div className="relative aspect-video lg:aspect-auto lg:h-[500px] bg-[#0A0A0A] rounded-[3rem] border-4 border-gray-900 shadow-2xl overflow-hidden group">
               <div className="absolute inset-0 opacity-20 pointer-events-none" 
-                   style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+                   style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
               
-              <div className="absolute inset-0 flex items-center justify-center">
-                 <div className="text-center space-y-4 max-w-sm px-8">
-                    <div className="w-20 h-20 bg-white/80 backdrop-blur-md rounded-[2rem] flex items-center justify-center mx-auto shadow-xl border border-white">
-                       <Navigation className="w-10 h-10 text-green-600 animate-pulse" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+                 {/* Map Path Visualization */}
+                 <div className="w-full max-w-lg relative h-32 flex items-center justify-between">
+                    {/* Route Line */}
+                    <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-1 bg-gray-800 rounded-full overflow-hidden">
+                       <motion.div 
+                          className="h-full bg-green-500"
+                          initial={{ width: "0%" }}
+                          animate={{ width: status === "COMPLETED" ? "100%" : status === "DELIVERED" ? "100%" : status === "IN_TRANSIT" ? "60%" : status === "PICKED_UP" ? "20%" : "0%" }}
+                          transition={{ duration: 1.5, ease: "easeInOut" }}
+                       />
                     </div>
-                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">Real-time Logistics</h3>
-                    <p className="text-xs text-gray-500 font-bold uppercase leading-relaxed tracking-widest">
-                       Location updates are streaming. Last ping: {lastUpdatedAt ? format(new Date(lastUpdatedAt), "pp") : 'Connecting...'}
+                    
+                    {/* Pickup Node */}
+                    <div className="relative z-10 flex flex-col items-center gap-2">
+                       <div className="w-8 h-8 rounded-full bg-gray-900 border-4 border-gray-700 flex items-center justify-center">
+                          <MapPin className="w-3 h-3 text-gray-400" />
+                       </div>
+                       <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest absolute -bottom-6 whitespace-nowrap">Pickup</span>
+                    </div>
+
+                    {/* Destination Node */}
+                    <div className="relative z-10 flex flex-col items-center gap-2">
+                       <div className={cn("w-8 h-8 rounded-full border-4 flex items-center justify-center transition-colors duration-500", 
+                           status === "COMPLETED" || status === "DELIVERED" ? "bg-green-500 border-green-300 shadow-[0_0_20px_rgba(34,197,94,0.5)]" : "bg-gray-900 border-gray-700"
+                       )}>
+                          <MapPin className={cn("w-3 h-3", status === "COMPLETED" || status === "DELIVERED" ? "text-white" : "text-gray-400")} />
+                       </div>
+                       <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest absolute -bottom-6 whitespace-nowrap">Destination</span>
+                    </div>
+
+                    {/* Moving Truck */}
+                    <motion.div 
+                       className="absolute top-1/2 -translate-y-1/2 -ml-6"
+                       initial={{ left: "0%" }}
+                       animate={{ left: status === "COMPLETED" || status === "DELIVERED" ? "100%" : status === "IN_TRANSIT" ? "60%" : status === "PICKED_UP" ? "20%" : "0%" }}
+                       transition={{ duration: 1.5, ease: "easeInOut" }}
+                    >
+                       <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                          <Truck className="w-6 h-6 text-green-600" />
+                       </div>
+                    </motion.div>
+                 </div>
+
+                 <div className="text-center mt-12">
+                    <p className="text-xs text-green-400 font-bold uppercase leading-relaxed tracking-[0.3em]">
+                       {lastUpdatedAt ? `Last update: ${format(new Date(lastUpdatedAt), "pp")}` : 'Awaiting GPS Signal...'}
                     </p>
-                    <div className="flex items-center justify-center gap-2 pt-4">
-                       <CircleDot className="w-4 h-4 text-green-600" />
-                       <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                         GPS: {lastLat ? lastLat.toFixed(4) : "0.0000"}, {lastLng ? lastLng.toFixed(4) : "0.0000"}
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                       <CircleDot className="w-3 h-3 text-gray-500" />
+                       <span className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">
+                         {lastLat ? lastLat.toFixed(4) : "0.0000"}, {lastLng ? lastLng.toFixed(4) : "0.0000"}
                        </span>
                     </div>
                  </div>
               </div>
 
               {/* Status Overlay */}
-              <div className="absolute bottom-8 left-8 right-8">
-                 <div className="bg-white/90 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white shadow-2xl flex items-center justify-between">
+              <div className="absolute bottom-6 left-6 right-6">
+                 <div className="bg-white/10 backdrop-blur-xl p-5 rounded-[2rem] border border-white/10 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                       <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center border border-green-100 shadow-sm">
-                          <Package className="w-7 h-7 text-green-600" />
+                       <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center border border-green-500/30">
+                          <Package className="w-6 h-6 text-green-400" />
                        </div>
                        <div>
-                          <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">Estimated Arrival</p>
-                          <h4 className="text-xl font-black text-gray-900">12 - 18 Mins</h4>
+                          <p className="text-[9px] font-black text-green-400 uppercase tracking-[0.2em]">Arrival Estimate</p>
+                          <h4 className="text-lg font-black text-white">{status === "COMPLETED" ? "Arrived" : "12 - 18 Mins"}</h4>
                        </div>
                     </div>
-                    <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-900 rounded-2xl">
-                       <TrendingUp className="w-4 h-4 text-green-400" />
-                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Fastest Route</span>
+                    <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/20 rounded-xl border border-green-500/30">
+                       <Navigation className="w-4 h-4 text-green-400" />
+                       <span className="text-[10px] font-black text-white uppercase tracking-widest">Tracking Live</span>
                     </div>
                  </div>
               </div>
@@ -213,14 +252,24 @@ const DeliveryTracking = () => {
         {/* Right: Timeline & Actions */}
         <div className="space-y-8">
            <div className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-sm">
-              <DeliveryTimeline status={status} updatedAt={lastUpdatedAt} />
+              <DeliveryTimeline status={order?.status === "COMPLETED" ? "COMPLETED" : status} updatedAt={lastUpdatedAt} />
            </div>
 
-           {isDeliveryPartner && (
+           {isDeliveryPartner && order?.status !== "COMPLETED" && (
              <DeliveryStatusActions 
                delivery={activeDelivery} 
                onUpdateStatus={(newStatus) => updateStatus(id, newStatus)} 
              />
+           )}
+           
+           {order?.status === "COMPLETED" && (
+             <div className="bg-green-50 text-green-800 p-8 rounded-[3rem] text-center shadow-sm border border-green-100">
+                <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                <h4 className="text-xl font-black mb-2">Mission Complete</h4>
+                <p className="text-sm font-medium text-green-700 leading-relaxed">
+                   Great job! The produce was delivered securely and funds have been released.
+                </p>
+             </div>
            )}
 
            <div className="bg-blue-600 p-8 rounded-[3rem] shadow-xl shadow-blue-200 text-white relative overflow-hidden group">

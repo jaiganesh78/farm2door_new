@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/server.js",
-    "worker": "node src/queues/worker.js"
-  },
+ "scripts": {
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "nodemon src/server.js",
+  "worker": "node src/queues/worker.js",
+  "dev:all": "start cmd /k \"npm run dev\" && start cmd /k \"npm run worker\""
+},
   "keywords": [],
   "author": "",
   "license": "ISC",

@@ -18,6 +18,9 @@ import OrderSummary from "../pages/buyer/OrderSummary";
 import OrdersList from "../pages/shared/OrdersList";
 import OrderDetail from "../pages/shared/OrderDetail";
 import DeliveryDashboard from "../pages/delivery/DeliveryDashboard";
+import DeliveryAvailable from "../pages/delivery/DeliveryAvailable";
+import DeliveryTasks from "../pages/delivery/DeliveryTasks";
+import DeliveryDetails from "../pages/delivery/DeliveryDetails";
 import DeliveryTracking from "../pages/shared/DeliveryTracking";
 import AdminDashboard from "../pages/admin/AdminDashboard";
 
@@ -60,6 +63,30 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["DELIVERY"]}>
               <DeliveryDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/delivery/available" 
+          element={
+            <ProtectedRoute allowedRoles={["DELIVERY"]}>
+              <DeliveryAvailable />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/delivery/tasks" 
+          element={
+            <ProtectedRoute allowedRoles={["DELIVERY"]}>
+              <DeliveryTasks />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/delivery/tasks/:id" 
+          element={
+            <ProtectedRoute allowedRoles={["DELIVERY"]}>
+              <DeliveryDetails />
             </ProtectedRoute>
           } 
         />

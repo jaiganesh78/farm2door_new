@@ -22,6 +22,8 @@ const otpLimiter = rateLimit({
   },
 });
 router.post("/assign/:orderId", authenticate, controller.assign);
+router.get("/available", authenticate, authorize("DELIVERY"), controller.getAvailable);
+router.post("/:orderId/accept", authenticate, authorize("DELIVERY"), controller.accept);
 router.get("/my", authenticate, controller.getMyDeliveries);
 router.get("/:id/location", authenticate, controller.getLocation);
 router.get("/:id", authenticate, controller.getDelivery);
@@ -53,5 +55,17 @@ router.post(
   uploadDeliveryProofImage.single("image"),
   controller.uploadProofImage
 );
+router.post(
+  "/:id/pickup/request",
+  authenticate,
+  authorize("DELIVERY"),
+  controller.requestPickupOtp
+);
 
+router.post(
+  "/:id/pickup/verify",
+  authenticate,
+  authorize("DELIVERY"),
+  controller.verifyPickupOtp
+);
 export default router;

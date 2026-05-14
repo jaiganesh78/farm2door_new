@@ -10,6 +10,22 @@ export const deliveryService = {
   },
 
   /**
+   * Fetch available delivery missions
+   */
+  fetchAvailableMissions: async () => {
+    const response = await api.get("/delivery/available");
+    return response.data.data;
+  },
+
+  /**
+   * Accept a delivery mission
+   */
+  acceptMission: async (orderId) => {
+    const response = await api.post(`/delivery/${orderId}/accept`);
+    return response.data.data;
+  },
+
+  /**
    * Fetch a single delivery by ID
    */
   fetchDeliveryById: async (id) => {

@@ -43,7 +43,7 @@ const OtpVerificationModal = ({ isOpen, onClose, onVerify, isLoading }) => {
 
           <h3 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">Confirm Delivery</h3>
           <p className="text-gray-500 font-medium leading-relaxed mb-10 px-4">
-             Enter the 4-digit code provided by the delivery partner to finalize the transaction and release funds from escrow.
+             Enter the 4-digit code provided by the buyer to finalize the transaction and release funds from escrow.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-8">

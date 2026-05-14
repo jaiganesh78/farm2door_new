@@ -4,6 +4,7 @@ import { getSocket, joinRoom, leaveRoom } from "@/socket/socket";
 
 export const useDeliveryStore = create((set, get) => ({
   deliveries: [],
+  availableMissions: [],
   activeDelivery: null,
   trackingLocation: null,
   isLoading: false,
@@ -17,6 +18,32 @@ export const useDeliveryStore = create((set, get) => ({
       set({ deliveries, isLoading: false });
     } catch (err) {
       set({ error: err.message, isLoading: false });
+    }
+  },
+
+  fetchAvailableMissions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const availableMissions = await deliveryService.fetchAvailableMissions();
+      set({ availableMissions, isLoading: false });
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+    }
+  },
+
+  acceptMission: async (orderId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const delivery = await deliveryService.acceptMission(orderId);
+      set((state) => ({
+        availableMissions: state.availableMissions.filter(m => m.id !== orderId),
+        deliveries: [delivery, ...state.deliveries],
+        isLoading: false,
+      }));
+      return delivery;
+    } catch (err) {
+      set({ error: err.message, isLoading: false });
+      throw err;
     }
   },
 
@@ -92,12 +119,20 @@ export const useDeliveryStore = create((set, get) => ({
         });
       }
     });
+
+    socket.on("delivery:status:update", (payload) => {
+      if (payload.deliveryId === deliveryId) {
+        // Refresh delivery details when status changes
+        get().fetchDeliveryById(deliveryId);
+      }
+    });
   },
 
   stopTracking: (deliveryId) => {
     const socket = getSocket();
     if (socket) {
       socket.off("delivery:location:update");
+      socket.off("delivery:status:update");
     }
     leaveRoom(deliveryId);
     set({ isTracking: false, trackingLocation: null });

@@ -16,12 +16,31 @@ export const assign = asyncHandler(async (req, res) => {
   });
 });
 
+export const getAvailable = asyncHandler(async (req, res) => {
+  const result = await service.getAvailableMissions();
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
+export const accept = asyncHandler(async (req, res) => {
+  const result = await service.acceptMission(req.user, req.params.orderId);
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
 export const updateStatus = asyncHandler(async (req, res) => {
+  const io = req.app.get("io");
+
   const result = await service.updateStatus(
     req.user,
     req.params.id,
     req.body.status,
-    req.body.proofImageUrl
+    req.body.proofImageUrl,
+    io
   );
 
   res.json({
@@ -31,10 +50,13 @@ export const updateStatus = asyncHandler(async (req, res) => {
 });
 
 export const verify = asyncHandler(async (req, res) => {
+  const io = req.app.get("io");
+
   const result = await service.verifyOtp(
     req.user,
     req.params.id,
-    req.body.otp
+    req.body.otp,
+    io
   );
 
   res.json({

@@ -44,7 +44,8 @@ const OrderDetail = () => {
         console.error("Direct order fetch failed, trying fallback:", err);
         try {
           const deliveryResponse = await api.get(`/delivery/my`);
-          const found = deliveryResponse.data.find(d => d.orderId === id || d.id === id);
+          const deliveries = deliveryResponse.data.data;
+          const found = deliveries.find(d => d.orderId === id || d.id === id);
           if (found) {
             setOrder(found.order);
           }

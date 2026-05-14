@@ -64,17 +64,17 @@ const DeliveryDashboard = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <QuickActionCard 
-                   title="Route Planner" 
-                   description="Optimize multiple drops" 
-                   icon={MapIcon} 
-                   to="/dashboard"
+                   title="Available Missions" 
+                   description="Find new delivery requests" 
+                   icon={Truck} 
+                   to="/delivery/available"
                    color="blue"
                  />
                  <QuickActionCard 
-                   title="Mission History" 
-                   description="View past deliveries" 
-                   icon={History} 
-                   to="/dashboard"
+                   title="My Assignments" 
+                   description="Manage active deliveries" 
+                   icon={Navigation} 
+                   to="/delivery/tasks"
                    color="orange"
                  />
               </div>

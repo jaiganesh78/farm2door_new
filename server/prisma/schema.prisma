@@ -183,6 +183,7 @@ enum DeliveryStatus {
   PICKED_UP
   IN_TRANSIT
   DELIVERED
+  COMPLETED
 }
 model Review {
   id           String   @id @default(uuid())

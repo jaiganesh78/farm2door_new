@@ -1,5 +1,4 @@
 import http from "http";
-import "./queues/worker.js";
 import rateLimit from "express-rate-limit";
 import { Server } from "socket.io";
 import { errorHandler } from "./middleware/error.middleware.js";
