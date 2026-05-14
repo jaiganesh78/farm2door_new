@@ -2489,3 +2489,7 @@
 {"durationMs":6,"ip":"::1","level":"info","message":"HTTP request","method":"GET","requestId":"5831218a-7642-4006-928a-3a3fe49e7e77","status":304,"timestamp":"2026-05-14T04:20:52.644Z","url":"/","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"}
 {"durationMs":12,"ip":"::1","level":"info","message":"HTTP request","method":"GET","requestId":"5ed1463e-0279-4d23-af40-37105be30159","status":304,"timestamp":"2026-05-14T04:20:52.646Z","url":"/deliveries","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36","userId":"7c2a9bac-ca7c-43ba-9624-d1b9fb5f9f8c"}
 {"durationMs":2,"ip":"::1","level":"info","message":"HTTP request","method":"GET","requestId":"81b839ff-018f-463e-9dba-90bdfc408553","status":304,"timestamp":"2026-05-14T04:20:52.655Z","url":"/","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"}
+{"level":"info","message":"Server running","port":5000,"timestamp":"2026-05-14T05:04:59.342Z"}
+{"level":"info","message":"Redis connected successfully","timestamp":"2026-05-14T05:04:59.363Z"}
+{"level":"info","message":"Server running","port":5000,"timestamp":"2026-05-14T05:07:18.592Z"}
+{"level":"info","message":"Redis connected successfully","timestamp":"2026-05-14T05:07:18.609Z"}

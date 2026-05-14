@@ -10,15 +10,27 @@ import {
   updateStatusSchema,
   verifyOtpSchema,
   deliveryIdParamSchema,
+  pickupOtpRequestSchema,
+  verifyPickupOtpBodySchema,
 } from "./delivery.validation.js";
 
 const router = express.Router();
-const otpLimiter = rateLimit({
+
+const pickupOtpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
   message: {
     success: false,
-    message: "Too many OTP attempts",
+    message: "Too many pickup OTP attempts",
+  },
+});
+
+const deliveryOtpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    message: "Too many delivery OTP attempts",
   },
 });
 router.post("/assign/:orderId", authenticate, controller.assign);
@@ -35,7 +47,7 @@ router.patch(
 );
 router.post(
   "/:id/verify",
-  otpLimiter,
+  deliveryOtpLimiter,
   authenticate,
   validate(verifyOtpSchema),
   controller.verify
@@ -59,13 +71,16 @@ router.post(
   "/:id/pickup/request",
   authenticate,
   authorize("DELIVERY"),
+  validate(pickupOtpRequestSchema),
   controller.requestPickupOtp
 );
 
 router.post(
   "/:id/pickup/verify",
+  pickupOtpLimiter,
   authenticate,
   authorize("DELIVERY"),
+  validate(verifyPickupOtpBodySchema),
   controller.verifyPickupOtp
 );
 export default router;

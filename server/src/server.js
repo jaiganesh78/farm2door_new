@@ -11,6 +11,7 @@ import paymentRoutes from "./modules/payments/payment.routes.js";
 import deliveryRoutes from "./modules/delivery/delivery.routes.js";
 import jwt from "jsonwebtoken";
 import prisma from "./config/prisma.js";
+import { onFarmerJoinedDeliveryRoom } from "./modules/delivery/delivery.service.js";
 import express from "express";
 import cors from "cors";
 import authRoutes from "./modules/auth/auth.routes.js";
@@ -146,6 +147,8 @@ io.on("connection", (socket) => {
     }
 
     socket.join(roomId);
+
+    await onFarmerJoinedDeliveryRoom(socket, delivery);
 
     logger.info({
       message: "User joined delivery room",

@@ -1,4 +1,4 @@
-import * as service from "./delivery.service.js";
+..import * as service from "./delivery.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
 export const assign = asyncHandler(async (req, res) => {
@@ -53,6 +53,33 @@ export const verify = asyncHandler(async (req, res) => {
   const io = req.app.get("io");
 
   const result = await service.verifyOtp(
+    req.user,
+    req.params.id,
+    req.body.otp,
+    io
+  );
+
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
+export const requestPickupOtp = asyncHandler(async (req, res) => {
+  const io = req.app.get("io");
+
+  const result = await service.requestPickupOtp(req.user, req.params.id, io);
+
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
+export const verifyPickupOtp = asyncHandler(async (req, res) => {
+  const io = req.app.get("io");
+
+  const result = await service.verifyPickupOtp(
     req.user,
     req.params.id,
     req.body.otp,

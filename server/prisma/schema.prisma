@@ -68,7 +68,9 @@ model Negotiation {
   buyerId   String
   farmerId  String
   status    NegotiationStatus @default(ACTIVE)
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   listing   Listing @relation(fields: [listingId], references: [id])
 
@@ -168,8 +170,13 @@ model Delivery {
   lastUpdatedAt      DateTime?
 
   status             DeliveryStatus @default(ASSIGNED)
+
   otp                String?
   otpExpiry          DateTime?
+
+  pickupOtp          String?
+  pickupOtpExpiry    DateTime?
+
   proofImageUrl      String?
 
   assignedAt         DateTime @default(now())

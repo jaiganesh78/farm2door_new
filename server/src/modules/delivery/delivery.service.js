@@ -1,8 +1,55 @@
 import prisma from "../../config/prisma.js";
 import logger from "../../utils/logger.js";
 import bcrypt from "bcrypt";
+import redis from "../../config/redis.js";
 import { enqueueOtpJob } from "../../jobs/notification.job.js";
 import { finalizeInventory } from "../../utils/inventory.js";
+
+const plainPickupOtpCacheKey = (deliveryId) => `delivery:pickup:otp:plain:${deliveryId}`;
+
+const setPlainPickupOtpCache = async (deliveryId, plainOtp) => {
+  if (!redis || !plainOtp) return;
+  try {
+    await redis.set(plainPickupOtpCacheKey(deliveryId), plainOtp, "EX", 600);
+  } catch (err) {
+    logger.error({
+      message: err?.message || "Failed to cache pickup OTP",
+      deliveryId,
+      context: "setPlainPickupOtpCache",
+    });
+  }
+};
+
+const clearPlainPickupOtpCache = async (deliveryId) => {
+  if (!redis) return;
+  try {
+    await redis.del(plainPickupOtpCacheKey(deliveryId));
+  } catch (err) {
+    logger.error({
+      message: err?.message || "Failed to clear pickup OTP cache",
+      deliveryId,
+      context: "clearPlainPickupOtpCache",
+    });
+  }
+};
+
+const emitPickupOtpToRoom = async (io, deliveryId, farmerId, plainOtp, pickupOtpExpiry) => {
+  const sockets = await io.in(deliveryId).fetchSockets();
+  const expiryIso = pickupOtpExpiry.toISOString();
+  for (const s of sockets) {
+    const u = s.user;
+    const base = {
+      deliveryId,
+      pickupOtpAvailable: true,
+      pickupOtpExpiry: expiryIso,
+    };
+    if (u?.role === "FARMER" && u?.id === farmerId && plainOtp) {
+      s.emit("delivery:pickup:otp", { ...base, otp: plainOtp });
+    } else {
+      s.emit("delivery:pickup:otp", base);
+    }
+  }
+};
 
 const httpError = (statusCode, message) => {
   const err = new Error(message);
@@ -17,8 +64,15 @@ const stripOtpFields = (delivery) => {
     return delivery.map(stripOtpFields);
   }
 
-  const { otp, otpExpiry, ...safe } = delivery;
-  return safe;
+  const now = Date.now();
+  const pickupOtpAvailable = Boolean(
+    delivery.pickupOtp &&
+      delivery.pickupOtpExpiry &&
+      new Date(delivery.pickupOtpExpiry).getTime() > now
+  );
+
+  const { otp, otpExpiry, pickupOtp, pickupOtpExpiry, ...safe } = delivery;
+  return { ...safe, pickupOtpAvailable };
 };
 
 const deliveryInclude = {
@@ -186,8 +240,15 @@ if (status === "DELIVERED" && delivery.status !== "DELIVERED") {
 
   await enqueueOtpJob(delivery.id, delivery.order.buyerId, otp);
 }
+
+  if (status === "PICKED_UP") {
+    throw httpError(400, "Pickup must be confirmed via pickup OTP verification");
+  }
+
+  // ASSIGNED: [] — no PATCH transitions from ASSIGNED. PICKED_UP is reachable only via
+  // verifyPickupOtp(); drivers must not set PICKED_UP through updateStatus.
   const validTransitions = {
-    ASSIGNED: ["PICKED_UP"],
+    ASSIGNED: [],
     PICKED_UP: ["IN_TRANSIT"],
     IN_TRANSIT: ["DELIVERED"],
   };
@@ -233,6 +294,220 @@ if (status === "DELIVERED" && delivery.status !== "DELIVERED") {
 
   return updated;
 };
+
+export const requestPickupOtp = async (user, deliveryId, io) => {
+  if (user.role !== "DELIVERY") {
+    throw httpError(403, "Only delivery partners can request pickup OTP");
+  }
+
+  const delivery = await prisma.delivery.findUnique({
+    where: { id: deliveryId },
+    include: { order: { select: { id: true, farmerId: true } } },
+  });
+
+  if (!delivery) throw httpError(404, "Delivery not found");
+  if (delivery.deliveryPartnerId !== user.id) {
+    throw httpError(403, "Unauthorized");
+  }
+  if (delivery.status !== "ASSIGNED") {
+    throw httpError(400, "Pickup OTP can only be requested while delivery is assigned");
+  }
+
+  const plainOtp = Math.floor(1000 + Math.random() * 9000).toString();
+  const pickupOtpHash = await bcrypt.hash(plainOtp, 10);
+  const pickupOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.delivery.update({
+    where: { id: deliveryId },
+    data: { pickupOtp: pickupOtpHash, pickupOtpExpiry },
+  });
+
+  await setPlainPickupOtpCache(deliveryId, plainOtp);
+
+  logger.info({
+    message: "Pickup OTP requested",
+    deliveryId,
+    userId: user.id,
+  });
+
+  if (io) {
+    await emitPickupOtpToRoom(
+      io,
+      deliveryId,
+      delivery.order.farmerId,
+      plainOtp,
+      pickupOtpExpiry
+    );
+  }
+
+  return {
+    message: "Pickup OTP sent",
+    expiresAt: pickupOtpExpiry.toISOString(),
+  };
+};
+
+export const verifyPickupOtp = async (user, deliveryId, otp, io) => {
+  if (user.role !== "DELIVERY") {
+    throw httpError(403, "Only delivery partners can verify pickup OTP");
+  }
+
+  const deliveryPrecheck = await prisma.delivery.findUnique({
+    where: { id: deliveryId },
+    include: { order: true },
+  });
+
+  if (!deliveryPrecheck) throw httpError(404, "Delivery not found");
+  if (deliveryPrecheck.deliveryPartnerId !== user.id) {
+    throw httpError(403, "Unauthorized");
+  }
+  if (deliveryPrecheck.status !== "ASSIGNED") {
+    throw httpError(400, "Pickup already verified or invalid state");
+  }
+  if (!deliveryPrecheck.pickupOtp) {
+    throw httpError(400, "No pickup OTP requested");
+  }
+
+  const pickupExpired =
+    deliveryPrecheck.pickupOtpExpiry &&
+    new Date() > new Date(deliveryPrecheck.pickupOtpExpiry);
+
+  if (pickupExpired) {
+    await clearPlainPickupOtpCache(deliveryId);
+    await prisma.delivery.updateMany({
+      where: {
+        id: deliveryId,
+        status: "ASSIGNED",
+        pickupOtp: { not: null },
+      },
+      data: { pickupOtp: null, pickupOtpExpiry: null },
+    });
+    throw httpError(400, "Pickup OTP expired");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const delivery = await tx.delivery.findUnique({
+      where: { id: deliveryId },
+      include: { order: true },
+    });
+
+    if (!delivery) throw httpError(404, "Delivery not found");
+    if (delivery.deliveryPartnerId !== user.id) {
+      throw httpError(403, "Unauthorized");
+    }
+    if (delivery.status !== "ASSIGNED") {
+      throw httpError(400, "Pickup already verified or invalid state");
+    }
+    if (!delivery.pickupOtp) {
+      throw httpError(400, "No pickup OTP requested");
+    }
+
+    const isValid = await bcrypt.compare(otp, delivery.pickupOtp);
+    if (!isValid) {
+      throw httpError(400, "Invalid pickup OTP");
+    }
+
+    const updatedRows = await tx.delivery.updateMany({
+      where: {
+        id: deliveryId,
+        status: "ASSIGNED",
+        pickupOtp: delivery.pickupOtp,
+      },
+      data: {
+        pickupOtp: null,
+        pickupOtpExpiry: null,
+        status: "PICKED_UP",
+      },
+    });
+
+    if (updatedRows.count !== 1) {
+      throw httpError(400, "Pickup verification failed — already completed or state changed");
+    }
+
+    await tx.order.update({
+      where: { id: delivery.orderId },
+      data: { status: "PICKED_UP" },
+    });
+
+    return tx.delivery.findUnique({
+      where: { id: deliveryId },
+      include: deliveryInclude,
+    });
+  });
+
+  await clearPlainPickupOtpCache(deliveryId);
+
+  logger.info({
+    message: "Pickup OTP verified",
+    deliveryId,
+    userId: user.id,
+  });
+
+  if (io) {
+    const ts = new Date().toISOString();
+    io.to(deliveryId).emit("delivery:status:update", {
+      deliveryId,
+      status: "PICKED_UP",
+      timestamp: ts,
+    });
+  }
+
+  return stripOtpFields(updated);
+};
+
+/** Called from socket join — hydrate farmer with cached pickup OTP if available. */
+export async function onFarmerJoinedDeliveryRoom(socket, delivery) {
+  try {
+    if (!socket.user?.id || socket.user.role !== "FARMER") return;
+    if (delivery.order?.farmerId !== socket.user.id) return;
+
+    const hasActive =
+      delivery.pickupOtp &&
+      delivery.pickupOtpExpiry &&
+      new Date(delivery.pickupOtpExpiry) > new Date();
+
+    if (!hasActive) {
+      socket.emit("delivery:pickup:otp", {
+        deliveryId: delivery.id,
+        pickupOtpAvailable: false,
+      });
+      return;
+    }
+
+    let plain = null;
+    if (redis) {
+      try {
+        plain = await redis.get(plainPickupOtpCacheKey(delivery.id));
+      } catch (err) {
+        logger.error({
+          message: err?.message || "Redis read failed (pickup OTP)",
+          deliveryId: delivery.id,
+          context: "onFarmerJoinedDeliveryRoom",
+        });
+      }
+    }
+
+    const base = {
+      deliveryId: delivery.id,
+      pickupOtpAvailable: true,
+      pickupOtpExpiry: delivery.pickupOtpExpiry.toISOString(),
+    };
+    if (!plain) {
+      logger.info({
+        message:
+          "Active pickup OTP but plain cache missing (e.g. Redis restart); farmer UI should prompt regenerate",
+        deliveryId: delivery.id,
+        context: "onFarmerJoinedDeliveryRoom",
+      });
+    }
+    socket.emit("delivery:pickup:otp", plain ? { ...base, otp: plain } : base);
+  } catch (err) {
+    logger.error({
+      message: err?.message || "onFarmerJoinedDeliveryRoom failed",
+      stack: err?.stack,
+      context: "onFarmerJoinedDeliveryRoom",
+    });
+  }
+}
 
 // Verify OTP → release payment
 export const verifyOtp = async (user, deliveryId, otp, io) => {
